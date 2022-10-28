@@ -1,0 +1,33 @@
+version: "3.7"
+services:
+  postgres:
+    image: postgres:13.1
+    volumes:
+      - fighter-nest-postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:3333:5432"
+    command: ["postgres", "-c", "log_statement=all"]
+    env_file: ./env/.env.postgres
+
+  # redis:
+  #   image: redis:6.2.6-buster
+  #   volumes:
+  #     - volume_name:/data
+  #   tty: true
+
+  api:
+    build:
+      dockerfile: ./dockerfile.develop
+      context: .
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:13000:3000"
+    volumes:
+      - ./src:/usr/src/app/src
+    env_file:
+      - ./env/.env.api
+
+volumes:
+  fighter-nest-postgres:
+    name: fighter-nest-postgres

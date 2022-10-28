@@ -1,0 +1,10 @@
+FROM node:lts
+
+WORKDIR /usr/src/app
+
+COPY . .
+COPY package.json tsconfig.json yarn.lock ./
+
+RUN yarn
+
+CMD [ "yarn", "start:dev" ]
