@@ -2,14 +2,26 @@ import { Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway(3333, { cors: true })
-export class SocketGateway implements OnGatewayInit {
+export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
+  private connectedClients: number = 0;
+
+  @WebSocketServer()
+  private server: Server;
+
+
+  handleConnection(client: any, ...args: any[]) {
+    this.connectedClients += 1;
+    Logger.log(`Client connected: ${this.connectedClients}#`);
+  }
   private readonly logger = new Logger(SocketGateway.name);
   afterInit(_server: any) {
     this.logger.log('Websocket Gateway initialized');
@@ -31,7 +43,7 @@ export class SocketGateway implements OnGatewayInit {
       status: 'ok',
       data,
     };
-    socket.emit('pong', response);
+    this.server.emit('pong', response);
     return response;
   }
 }
