@@ -23,6 +23,7 @@ services:
       - postgres
     ports:
       - "127.0.0.1:13000:3000"
+      - "127.0.0.1:13333:3333"
     volumes:
       - ./src:/usr/src/app/src
     env_file:

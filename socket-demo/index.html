@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Socket.io Demo</title>
+
+    <style>
+        .chat-form {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <form class="login-form" method="post" action="">
+        <input type="text" id="ws-ep" value="ws://127.0.0.1:13333" />
+        <input type="submit" value="Connect" />
+    </form>
+
+    <form class="emit-form" method="post" action="">
+        <input type="text" id="event-name" value="ping" />
+        <input type="text" id="event-data" value='{"test": 12345}' />
+        <input type="submit" value="Send" />
+    </form>
+
+    <form class="subscribe-form" method="post" action="">
+        <input type="text" id="subscribe-name" value="pong" />
+        <input type="submit" value="Subscribe" />
+        <textarea id="subscribed-data"></textarea>
+    </form>
+
+    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"
+        integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H"
+        crossorigin="anonymous"></script>
+
+    <script>
+        var socket = null;
+        $(".login-form").on("submit", function (e) {
+            const wsEp = $("#ws-ep").val();
+            socket = io(wsEp);
+            console.log("================\n", "socket connected: ", socket, "\n================");
+            socket.on("add-message", function (data) {
+                $("#messages").append($("<li>", {
+                    "text": data.content
+                }));
+            });
+            return false;
+        });
+
+        // EMITTING
+        $(".emit-form").on("submit", function () {
+            var eventName = $("#event-name").val();
+            var eventData = $("#event-data").val();
+            console.log("================\n", `EMITTING event to [${eventName}]`, "\n================");
+            socket.emit(eventName, JSON.parse(eventData), (response) => {
+                console.log("================\n", `response from [${eventName}] after emit:`, response, "\n================");
+            });
+            return false;
+        });
+
+        // SUBSCRIBING
+        $(".subscribe-form").on("submit", function () {
+            var eventName = $("#subscribe-name").val();
+            console.log("================\n", `SUBSCRIBING to [${eventName}]`, "\n================");
+            socket.on(eventName, (response) => {
+                var txt = $("#subscribed-data");
+                txt.val(txt.val() + "\n" + JSON.stringify(response));
+                console.log("================\n", `response from [${eventName}] after subscribe:`, response, "\n================");
+            });
+            return false;
+        });
+
+    </script>
+</body>
+
+</html>
