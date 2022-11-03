@@ -18,7 +18,7 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
   private server: Server;
 
 
-  handleConnection(client: any, ...args: any[]) {
+  handleConnection(_client: any, ..._args: any[]): void {
     this.connectedClients += 1;
     Logger.log(`Client connected: ${this.connectedClients}#`);
   }
@@ -36,7 +36,7 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage('ping')
   handleEvent(
     @MessageBody() data: any,
-    @ConnectedSocket() socket: Socket,
+    @ConnectedSocket() _socket: Socket,
   ): Record<string, any> {
     Logger.log('received ping event', data);
     const response = {
