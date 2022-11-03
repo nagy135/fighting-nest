@@ -15,17 +15,28 @@ services:
   #     - volume_name:/data
   #   tty: true
 
+  app:
+    build:
+      dockerfile: ./Dockerfile
+      context: ./app
+    volumes:
+      - ./app:/usr/src/app
+    ports:
+      - "3000:3000"
+    # env_file: ./env/.env.app
+    stdin_open: true
+
   api:
     build:
       dockerfile: ./dockerfile.develop
-      context: .
+      context: ./api
     depends_on:
       - postgres
     ports:
       - "127.0.0.1:13000:3000"
       - "127.0.0.1:13333:3333"
     volumes:
-      - ./src:/usr/src/app/src
+      - ./api/src:/usr/src/app/src
     env_file:
       - ./env/.env.api
 
