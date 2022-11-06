@@ -5,8 +5,8 @@ const HEALTH_BAR_OFFSET_Y = -PLAYER_RADIUS - 10;
 const HEALTH_BAR_OFFSET_X = -PLAYER_RADIUS;
 const HEALTH_BAR_WIDTH = 5;
 const DEFAULT_HEALTH = 100;
-const ATTACKING_FRAMES = 5;
-const ATTACK_LINE_WIDTH = 4;
+const ATTACKING_FRAMES = 15;
+const ATTACK_LINE_WIDTH = 2;
 const STEP = 10;
 
 type TPosition = {
@@ -97,5 +97,5 @@ export default () => {
     window.addEventListener("keydown", (e) => playerMove(e.key));
     window.requestAnimationFrame(tick);
   }, []);
-  return <canvas id="canvas" ref={canvasRef} width={300} height={300} />;
+  return <canvas id="canvas" ref={canvasRef} width={800} height={800} />;
 };
