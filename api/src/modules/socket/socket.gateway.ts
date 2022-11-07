@@ -1,3 +1,4 @@
+import { TSocketRequest, TSocketResponse } from '@ctypes/socket';
 import { Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
@@ -9,6 +10,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { SocketService } from './socket.service';
 
 @WebSocketGateway(3333, { cors: true })
 export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
@@ -17,6 +19,7 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   private server: Server;
 
+  constructor(private readonly socketService: SocketService){}
 
   handleConnection(_client: any, ..._args: any[]): void {
     this.connectedClients += 1;
@@ -34,16 +37,30 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
    * @author Viktor Nagy <viktor.nagy@01people.com>
    */
   @SubscribeMessage('ping')
-  handleEvent(
+  handlePing(
     @MessageBody() data: any,
     @ConnectedSocket() _socket: Socket,
-  ): Record<string, any> {
+  ): TSocketResponse {
     Logger.log('received ping event', data);
-    const response = {
+    const response: TSocketResponse = {
       status: 'ok',
       data,
     };
     this.server.emit('pong', response);
     return response;
+  }
+
+
+  @SubscribeMessage('update')
+  handleUpdate(
+    @MessageBody() data: TSocketRequest,
+  ): any {
+    Logger.log('received update event', data);
+    switch (data.type) {
+      case 'move':
+        return this.socketService.move(data.data);
+      case 'attack':
+        return this.socketService.attack(data.data);
+    }
   }
 }
