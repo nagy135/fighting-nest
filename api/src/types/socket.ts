@@ -1,4 +1,4 @@
-type TEventTypes = 'move' | 'attack';
+export type TEventTypes = TSocketRequest['type'];
 
 // request data {{{
 export type TSocketMoveRequest = {

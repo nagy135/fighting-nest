@@ -54,13 +54,16 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage('update')
   handleUpdate(
     @MessageBody() data: TSocketRequest,
+    @ConnectedSocket() socket: Socket,
   ): any {
     Logger.log('received update event', data);
     switch (data.type) {
       case 'move':
-        return this.socketService.move(data.data);
+        return this.socketService.move(this.server, socket.id, data.data);
       case 'attack':
-        return this.socketService.attack(data.data);
+        return this.socketService.attack(this.server, socket.id, data.data);
+      default:
+        throw new Error('unknown update type');
     }
   }
 }
