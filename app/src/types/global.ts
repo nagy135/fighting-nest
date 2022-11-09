@@ -7,5 +7,6 @@ export type TPlayer = {
   id: string;
   x: number;
   y: number;
+  health: number;
   attacking: boolean;
 };

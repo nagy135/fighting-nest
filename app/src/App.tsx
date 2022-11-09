@@ -13,10 +13,9 @@ const ATTACK_LINE_WIDTH = 2;
 const STEP = 10;
 
 export default () => {
-  console.log('render');
+  console.log("render");
   const positionRef = useRef<TPosition>({ x: 100, y: 100 });
   const attackingRef = useRef<number>(0);
-  const healthRef = useRef<number>(DEFAULT_HEALTH);
 
   const playersRef = useRef<TPlayer[]>([]);
 
@@ -27,7 +26,6 @@ export default () => {
 
     socketRef.current = io("ws://127.0.0.1:13333");
     socketRef.current.on("move", (data: TSocketRequest<TSocketMoveRequest>) => {
-      console.log("================\n", "MOVE: ", data, "\n================");
       if (!playersRef.current) return;
       const players = playersRef.current;
       const { x, y, socketId } = data;
@@ -39,6 +37,7 @@ export default () => {
           x,
           y,
           attacking: false,
+          health: 100
         });
       } else {
         players[playerIndex].x = x;
@@ -50,9 +49,6 @@ export default () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const playerMove = (key: string) => {
-    console.log("================\n", "key: ", key, "\n================");
-          console.log("================\n", "positionRef: ", positionRef.current, "\n================");
-          console.log("================\n", "STEP: ", STEP, "\n================");
     switch (key) {
       case "w":
         positionRef.current = {
@@ -80,28 +76,18 @@ export default () => {
         break;
       case " ":
         attackingRef.current = ATTACKING_FRAMES;
+        break;
+      default:
+        return;
     }
-          console.log("================\n", "after: ", positionRef.current, "\n================");
+    console.log(
+      "================\n",
+      "after: ",
+      positionRef.current,
+      "\n================"
+    );
 
-    if (socketRef.current) {
-      console.log(
-        "================\n",
-        "sending: ",
-        positionRef.current,
-        "\n================"
-      );
-      socketRef.current.emit(
-        "update",
-        {
-          type: "move",
-          data: {
-            x: positionRef.current.x,
-            y: positionRef.current.y,
-          },
-        },
-        (response: any) => console.log(response)
-      );
-    }
+    if (socketRef.current) syncMove(socketRef.current, positionRef.current)
   };
 
   const tick = () => {
@@ -117,12 +103,12 @@ export default () => {
       ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
 
-      // ctx.fillRect(
-      //   positionRef.current.x + HEALTH_BAR_OFFSET_X,
-      //   positionRef.current.y + HEALTH_BAR_OFFSET_Y,
-      //   PLAYER_RADIUS * 2,
-      //   HEALTH_BAR_WIDTH
-      // );
+      ctx.fillRect(
+        positionRef.current.x + HEALTH_BAR_OFFSET_X,
+        positionRef.current.y + HEALTH_BAR_OFFSET_Y,
+        PLAYER_RADIUS * 2,
+        HEALTH_BAR_WIDTH
+      );
 
       // if (attackingRef.current) {
       //   ctx.beginPath();
@@ -144,6 +130,9 @@ export default () => {
   useEffect(() => {
     window.addEventListener("keydown", (e) => playerMove(e.key));
     window.requestAnimationFrame(tick);
+    setInterval(() => {
+      if (socketRef.current) syncMove(socketRef.current, positionRef.current)
+    }, 1000)
   }, []);
   return (
     <canvas
@@ -153,5 +142,16 @@ export default () => {
       width={800}
       height={800}
     />
+  );
+};
+
+const syncMove = (socket: Socket, position: TPosition) => {
+  socket.emit(
+    "update",
+    {
+      type: "move",
+      data: position
+    },
+    (response: any) => console.log(response)
   );
 };
