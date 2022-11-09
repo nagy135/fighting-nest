@@ -1,20 +1,11 @@
-export type TEventTypes = TSocketRequest['type'];
-
-// request data {{{
-export type TSocketMoveRequest = {
+export type TSocketUpdateRequest = {
   x: number;
   y: number;
+  attacking: number;
+  health: number;
 };
-export type TSocketAttackRequest = undefined;
-// }}}
 
-export type TSocketRequest = {
-  type: 'move',
-  data: TSocketMoveRequest
-} | {
-  type: 'attack',
-  data: TSocketAttackRequest
-};
+export type TSocketRequest = TSocketUpdateRequest;
 
 export type TSocketResponse = {
   status: 'ok' | 'nok',

@@ -19,7 +19,7 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   private server: Server;
 
-  constructor(private readonly socketService: SocketService){}
+  constructor(private readonly socketService: SocketService) {}
 
   handleConnection(_client: any, ..._args: any[]): void {
     this.connectedClients += 1;
@@ -50,20 +50,12 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
     return response;
   }
 
-
   @SubscribeMessage('update')
   handleUpdate(
     @MessageBody() data: TSocketRequest,
     @ConnectedSocket() socket: Socket,
   ): any {
     Logger.log('received update event', data);
-    switch (data.type) {
-      case 'move':
-        return this.socketService.move(this.server, socket.id, data.data);
-      case 'attack':
-        return this.socketService.attack(this.server, socket.id, data.data);
-      default:
-        throw new Error('unknown update type');
-    }
+    return this.socketService.update(socket, data);
   }
 }

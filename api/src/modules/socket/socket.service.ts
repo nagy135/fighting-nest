@@ -1,22 +1,16 @@
-import { TSocketAttackRequest, TSocketMoveRequest } from '@ctypes/socket';
+import { TSocketUpdateRequest } from '@ctypes/socket';
 import { Injectable } from '@nestjs/common';
-import { Server } from 'socket.io';
+import { Socket } from 'socket.io';
 
 @Injectable()
 export class SocketService {
   echo(): string {
     return 'Socket';
   }
-  move(server: Server, socketId: string, data: TSocketMoveRequest) {
-    server.emit('move', {
+  update(socket: Socket, data: TSocketUpdateRequest) {
+    socket.broadcast.emit('update', {
       ...data,
-      socketId,
-    });
-  }
-
-  attack(server: Server, socketId: string, _data: TSocketAttackRequest) {
-    server.emit('attack', {
-      socketId,
+      socketId: socket.id,
     });
   }
 }
