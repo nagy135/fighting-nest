@@ -76,7 +76,6 @@ export default () => {
       default:
         return;
     }
-
     if (socketRef.current) syncUpdate(socketRef.current, me);
   };
 
@@ -94,12 +93,14 @@ export default () => {
       ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
 
+      ctx.fillStyle = redLevel(player.health);
       ctx.fillRect(
-        player.x + HEALTH_BAR_OFFSET_X,
+        player.x + HEALTH_BAR_OFFSET_X - PLAYER_RADIUS,
         player.y + HEALTH_BAR_OFFSET_Y,
-        PLAYER_RADIUS * 2 * (player.health / DEFAULT_HEALTH),
+        PLAYER_RADIUS * 4 * (player.health / DEFAULT_HEALTH),
         HEALTH_BAR_WIDTH
       );
+      ctx.fillStyle = "black";
 
       if (player.attacking) {
         const { x: attackerX, y: attackerY } = player;
@@ -161,6 +162,10 @@ export default () => {
       height={CANVAS_HEIGHT}
     />
   );
+};
+
+const redLevel = (currentHealth: number): string => {
+  return `#${Math.floor(256 * ((DEFAULT_HEALTH - currentHealth) / DEFAULT_HEALTH)).toString(16)}0000`;
 };
 
 const syncUpdate = (socket: Socket, data: TSocketUpdateRequest) => {
