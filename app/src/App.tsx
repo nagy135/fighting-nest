@@ -76,16 +76,11 @@ export default () => {
         break;
       case " ":
         attackingRef.current = ATTACKING_FRAMES;
-        break;
+        if (socketRef.current) syncAttack(socketRef.current);
+        return;
       default:
         return;
     }
-    console.log(
-      "================\n",
-      "after: ",
-      positionRef.current,
-      "\n================"
-    );
 
     if (socketRef.current) syncMove(socketRef.current, positionRef.current)
   };
@@ -104,10 +99,10 @@ export default () => {
       ctx.fill();
 
       ctx.fillRect(
-        positionRef.current.x + HEALTH_BAR_OFFSET_X,
-        positionRef.current.y + HEALTH_BAR_OFFSET_Y,
-        PLAYER_RADIUS * 2,
-        HEALTH_BAR_WIDTH
+        player.x + HEALTH_BAR_OFFSET_X,
+        player.y + HEALTH_BAR_OFFSET_Y,
+        PLAYER_RADIUS * 2 * (player.health / 100),
+        HEALTH_BAR_WIDTH 
       );
 
       // if (attackingRef.current) {
@@ -151,6 +146,16 @@ const syncMove = (socket: Socket, position: TPosition) => {
     {
       type: "move",
       data: position
+    },
+    (response: any) => console.log(response)
+  );
+};
+
+const syncAttack = (socket: Socket) => {
+  socket.emit(
+    "update",
+    {
+      type: "attack",
     },
     (response: any) => console.log(response)
   );
