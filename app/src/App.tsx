@@ -1,9 +1,5 @@
-import { TPlayer, TPosition } from "@ctypes/global";
-import {
-  TSocketAttackRequest,
-  TSocketMoveRequest,
-  TSocketRequest,
-} from "@ctypes/socket";
+import { TPlayer } from "@ctypes/global";
+import { TSocketRequest, TSocketUpdateRequest } from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -20,10 +16,7 @@ const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 
 export default () => {
-  console.log("render");
-  const positionRef = useRef<TPosition>({ x: 100, y: 100 });
-
-  const playersRef = useRef<TPlayer[]>([]);
+  const playersRef = useRef<Record<string, TPlayer>>({});
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -31,38 +24,29 @@ export default () => {
     if (socketRef.current) return;
 
     socketRef.current = io("ws://127.0.0.1:13333");
-    socketRef.current.on("move", (data: TSocketRequest<TSocketMoveRequest>) => {
-      if (!playersRef.current) return;
-      const players = playersRef.current;
-      const { x, y, socketId } = data;
-
-      const playerIndex = players.findIndex((e) => e.id === socketId);
-      if (playerIndex === -1) {
-        players.push({
-          id: socketId,
-          x,
-          y,
-          attacking: 0,
-          health: DEFAULT_HEALTH,
-        });
-      } else {
-        players[playerIndex].x = x;
-        players[playerIndex].y = y;
-      }
-    });
 
     socketRef.current.on(
-      "attack",
-      (data: TSocketRequest<TSocketAttackRequest>) => {
+      "update",
+      (data: TSocketRequest<TSocketUpdateRequest>) => {
         if (!playersRef.current) return;
         const players = playersRef.current;
-        const { socketId } = data;
+        const { x, y, attacking, health, socketId } = data;
 
-        const playerIndex = players.findIndex((e) => e.id === socketId);
-        if (playerIndex === -1) {
-          return;
+        const player = players[socketId];
+        if (!player) {
+          console.log("new player");
+          players[socketId] = {
+            id: socketId,
+            x,
+            y,
+            attacking: 0,
+            health: DEFAULT_HEALTH,
+          };
         } else {
-          players[playerIndex].attacking = ATTACKING_FRAMES;
+          player.x = x;
+          player.y = y;
+          player.health = health;
+          player.attacking = attacking;
         }
       }
     );
@@ -71,50 +55,41 @@ export default () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const playerMove = (key: string) => {
+    if (!socketRef.current) return;
+    const me = playersRef.current[socketRef.current.id];
     switch (key) {
       case "w":
-        positionRef.current = {
-          x: positionRef.current.x,
-          y: positionRef.current.y - STEP,
-        };
+        me.y -= STEP;
         break;
       case "s":
-        positionRef.current = {
-          x: positionRef.current.x,
-          y: positionRef.current.y + STEP,
-        };
+        me.y += STEP;
         break;
       case "a":
-        positionRef.current = {
-          x: positionRef.current.x - STEP,
-          y: positionRef.current.y,
-        };
+        me.x -= STEP;
         break;
       case "d":
-        positionRef.current = {
-          x: positionRef.current.x + STEP,
-          y: positionRef.current.y,
-        };
+        me.x += STEP;
         break;
       case " ":
-        if (socketRef.current) syncAttack(socketRef.current);
-        return;
+        me.attacking = ATTACKING_FRAMES;
+        break;
       default:
         return;
     }
 
-    if (socketRef.current) syncMove(socketRef.current, positionRef.current);
+    if (socketRef.current) syncUpdate(socketRef.current, me);
   };
 
   const tick = () => {
-    if (!canvasRef.current || !positionRef.current) return;
+    if (!canvasRef.current || !socketRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
     const { width, height } = canvasRef.current.getBoundingClientRect();
 
     ctx.clearRect(0, 0, width, height);
 
-    for (const player of playersRef.current) {
+    const me = playersRef.current[socketRef.current.id];
+    for (const player of Object.values(playersRef.current)) {
       ctx.beginPath();
       ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
@@ -130,25 +105,21 @@ export default () => {
         const { x: attackerX, y: attackerY } = player;
         const radius =
           PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - player.attacking);
-        playersRef.current
-          .filter(
-            (e) =>
-              e.id !== player.id &&
-              attackerX > e.x - radius &&
-              attackerX < e.x + radius &&
-              attackerY > e.y - radius &&
-              attackerY < e.y + radius
-          )
-          .forEach((e) => {
-            e.health -= HEALTH_DECREMENT_VALUE;
-            if (e.health <= 0 && e.id === socketRef.current?.id) {
-              e.health = DEFAULT_HEALTH;
-              e.x = Math.random() * CANVAS_WIDTH;
-              e.y = Math.random() * CANVAS_HEIGHT;
-              if (socketRef.current)
-              syncMove(socketRef.current, {x: e.x, y: e.y});
-            } else if (e.health <= 0) e.health = DEFAULT_HEALTH;
-          });
+        if (
+          me.id !== player.id &&
+          me.x > attackerX - radius &&
+          me.x < attackerX + radius &&
+          me.y > attackerY - radius &&
+          me.y < attackerY + radius
+        ) {
+          me.health -= HEALTH_DECREMENT_VALUE;
+          if (me.health <= 0) {
+            me.health = DEFAULT_HEALTH;
+            me.x = Math.floor(Math.random() * CANVAS_WIDTH);
+            me.y = Math.floor(Math.random() * CANVAS_HEIGHT);
+          }
+          syncUpdate(socketRef.current, me);
+        }
         ctx.beginPath();
         ctx.lineWidth = ATTACK_LINE_WIDTH;
         ctx.arc(player.x, player.y, radius, 0, 2 * Math.PI);
@@ -163,7 +134,22 @@ export default () => {
     window.addEventListener("keydown", (e) => playerMove(e.key));
     window.requestAnimationFrame(tick);
     setInterval(() => {
-      if (socketRef.current) syncMove(socketRef.current, positionRef.current);
+      if (socketRef.current !== null && playersRef.current) {
+        const me = playersRef.current[socketRef.current.id];
+        if (!me) {
+          const newMe = {
+            id: socketRef.current.id,
+            x: Math.floor(Math.random() * CANVAS_WIDTH),
+            y: Math.floor(Math.random() * CANVAS_HEIGHT),
+            attacking: 0,
+            health: DEFAULT_HEALTH,
+          };
+          playersRef.current[socketRef.current.id] = newMe;
+          syncUpdate(socketRef.current, newMe);
+        } else {
+          syncUpdate(socketRef.current, me);
+        }
+      }
     }, 1000);
   }, []);
   return (
@@ -177,23 +163,6 @@ export default () => {
   );
 };
 
-const syncMove = (socket: Socket, position: TPosition) => {
-  socket.emit(
-    "update",
-    {
-      type: "move",
-      data: position,
-    },
-    (response: any) => console.log(response)
-  );
-};
-
-const syncAttack = (socket: Socket) => {
-  socket.emit(
-    "update",
-    {
-      type: "attack",
-    },
-    (response: any) => console.log(response)
-  );
+const syncUpdate = (socket: Socket, data: TSocketUpdateRequest) => {
+  socket.emit("update", data, (response: any) => console.log(response));
 };
