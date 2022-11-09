@@ -8,5 +8,5 @@ export type TPlayer = {
   x: number;
   y: number;
   health: number;
-  attacking: boolean;
+  attacking: number;
 };

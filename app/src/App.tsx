@@ -1,5 +1,5 @@
 import { TPlayer, TPosition } from "@ctypes/global";
-import { TSocketMoveRequest, TSocketRequest } from "@ctypes/socket";
+import { TSocketAttackRequest, TSocketMoveRequest, TSocketRequest } from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -15,7 +15,6 @@ const STEP = 10;
 export default () => {
   console.log("render");
   const positionRef = useRef<TPosition>({ x: 100, y: 100 });
-  const attackingRef = useRef<number>(0);
 
   const playersRef = useRef<TPlayer[]>([]);
 
@@ -36,12 +35,25 @@ export default () => {
           id: socketId,
           x,
           y,
-          attacking: false,
-          health: 100
+          attacking: 0,
+          health: DEFAULT_HEALTH
         });
       } else {
         players[playerIndex].x = x;
         players[playerIndex].y = y;
+      }
+    });
+
+    socketRef.current.on("attack", (data: TSocketRequest<TSocketAttackRequest>) => {
+      if (!playersRef.current) return;
+      const players = playersRef.current;
+      const { socketId } = data;
+
+      const playerIndex = players.findIndex((e) => e.id === socketId);
+      if (playerIndex === -1) {
+        return;
+      } else {
+        players[playerIndex].attacking = ATTACKING_FRAMES;
       }
     });
   }, []);
@@ -75,7 +87,6 @@ export default () => {
         };
         break;
       case " ":
-        attackingRef.current = ATTACKING_FRAMES;
         if (socketRef.current) syncAttack(socketRef.current);
         return;
       default:
@@ -89,7 +100,7 @@ export default () => {
     if (!canvasRef.current || !positionRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
-    const { x, y, width, height } = canvasRef.current.getBoundingClientRect();
+    const { width, height } = canvasRef.current.getBoundingClientRect();
 
     ctx.clearRect(0, 0, width, height);
 
@@ -101,23 +112,23 @@ export default () => {
       ctx.fillRect(
         player.x + HEALTH_BAR_OFFSET_X,
         player.y + HEALTH_BAR_OFFSET_Y,
-        PLAYER_RADIUS * 2 * (player.health / 100),
+        PLAYER_RADIUS * 2 * (player.health / DEFAULT_HEALTH),
         HEALTH_BAR_WIDTH 
       );
 
-      // if (attackingRef.current) {
-      //   ctx.beginPath();
-      //   ctx.lineWidth = ATTACK_LINE_WIDTH;
-      //   ctx.arc(
-      //     positionRef.current.x,
-      //     positionRef.current.y,
-      //     PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - attackingRef.current),
-      //     0,
-      //     2 * Math.PI
-      //   );
-      //   attackingRef.current -= 1;
-      //   ctx.stroke();
-      // }
+      if (player.attacking) {
+        ctx.beginPath();
+        ctx.lineWidth = ATTACK_LINE_WIDTH;
+        ctx.arc(
+          player.x,
+          player.y,
+          PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - player.attacking),
+          0,
+          2 * Math.PI
+        );
+        player.attacking -= 1;
+        ctx.stroke();
+      }
     }
     window.requestAnimationFrame(tick);
   };
