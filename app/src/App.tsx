@@ -1,5 +1,6 @@
+import { TPlayer, TPosition } from "@ctypes/global";
 import { TSocketMoveRequest, TSocketRequest } from "@ctypes/socket";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
 const PLAYER_RADIUS = 10;
@@ -11,32 +12,47 @@ const ATTACKING_FRAMES = 15;
 const ATTACK_LINE_WIDTH = 2;
 const STEP = 10;
 
-type TPosition = {
-  x: number;
-  y: number;
-};
-
 export default () => {
+  console.log('render');
   const positionRef = useRef<TPosition>({ x: 100, y: 100 });
   const attackingRef = useRef<number>(0);
   const healthRef = useRef<number>(DEFAULT_HEALTH);
+
+  const playersRef = useRef<TPlayer[]>([]);
 
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io();
-    socketRef.current.on('move', (data: TSocketRequest<TSocketMoveRequest>) => {
+    socketRef.current = io("ws://127.0.0.1:13333");
+    socketRef.current.on("move", (data: TSocketRequest<TSocketMoveRequest>) => {
+      console.log("================\n", "MOVE: ", data, "\n================");
+      if (!playersRef.current) return;
+      const players = playersRef.current;
       const { x, y, socketId } = data;
 
+      const playerIndex = players.findIndex((e) => e.id === socketId);
+      if (playerIndex === -1) {
+        players.push({
+          id: socketId,
+          x,
+          y,
+          attacking: false,
+        });
+      } else {
+        players[playerIndex].x = x;
+        players[playerIndex].y = y;
+      }
     });
-
   }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const playerMove = (key: string) => {
+    console.log("================\n", "key: ", key, "\n================");
+          console.log("================\n", "positionRef: ", positionRef.current, "\n================");
+          console.log("================\n", "STEP: ", STEP, "\n================");
     switch (key) {
       case "w":
         positionRef.current = {
@@ -65,6 +81,27 @@ export default () => {
       case " ":
         attackingRef.current = ATTACKING_FRAMES;
     }
+          console.log("================\n", "after: ", positionRef.current, "\n================");
+
+    if (socketRef.current) {
+      console.log(
+        "================\n",
+        "sending: ",
+        positionRef.current,
+        "\n================"
+      );
+      socketRef.current.emit(
+        "update",
+        {
+          type: "move",
+          data: {
+            x: positionRef.current.x,
+            y: positionRef.current.y,
+          },
+        },
+        (response: any) => console.log(response)
+      );
+    }
   };
 
   const tick = () => {
@@ -75,35 +112,31 @@ export default () => {
 
     ctx.clearRect(0, 0, width, height);
 
-    ctx.beginPath();
-    ctx.arc(
-      positionRef.current.x,
-      positionRef.current.y,
-      PLAYER_RADIUS,
-      0,
-      2 * Math.PI
-    );
-    ctx.fill();
-
-    ctx.fillRect(
-      positionRef.current.x + HEALTH_BAR_OFFSET_X,
-      positionRef.current.y + HEALTH_BAR_OFFSET_Y,
-      PLAYER_RADIUS * 2,
-      HEALTH_BAR_WIDTH
-    );
-
-    if (attackingRef.current) {
+    for (const player of playersRef.current) {
       ctx.beginPath();
-      ctx.lineWidth = ATTACK_LINE_WIDTH;
-      ctx.arc(
-        positionRef.current.x,
-        positionRef.current.y,
-        PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - attackingRef.current),
-        0,
-        2 * Math.PI
-      );
-      attackingRef.current -= 1;
-      ctx.stroke();
+      ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // ctx.fillRect(
+      //   positionRef.current.x + HEALTH_BAR_OFFSET_X,
+      //   positionRef.current.y + HEALTH_BAR_OFFSET_Y,
+      //   PLAYER_RADIUS * 2,
+      //   HEALTH_BAR_WIDTH
+      // );
+
+      // if (attackingRef.current) {
+      //   ctx.beginPath();
+      //   ctx.lineWidth = ATTACK_LINE_WIDTH;
+      //   ctx.arc(
+      //     positionRef.current.x,
+      //     positionRef.current.y,
+      //     PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - attackingRef.current),
+      //     0,
+      //     2 * Math.PI
+      //   );
+      //   attackingRef.current -= 1;
+      //   ctx.stroke();
+      // }
     }
     window.requestAnimationFrame(tick);
   };
