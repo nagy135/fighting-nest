@@ -1,5 +1,9 @@
 import { TPlayer, TPosition } from "@ctypes/global";
-import { TSocketAttackRequest, TSocketMoveRequest, TSocketRequest } from "@ctypes/socket";
+import {
+  TSocketAttackRequest,
+  TSocketMoveRequest,
+  TSocketRequest,
+} from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -10,6 +14,7 @@ const HEALTH_BAR_WIDTH = 5;
 const DEFAULT_HEALTH = 100;
 const ATTACKING_FRAMES = 15;
 const ATTACK_LINE_WIDTH = 2;
+const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 
 export default () => {
@@ -36,7 +41,7 @@ export default () => {
           x,
           y,
           attacking: 0,
-          health: DEFAULT_HEALTH
+          health: DEFAULT_HEALTH,
         });
       } else {
         players[playerIndex].x = x;
@@ -44,18 +49,21 @@ export default () => {
       }
     });
 
-    socketRef.current.on("attack", (data: TSocketRequest<TSocketAttackRequest>) => {
-      if (!playersRef.current) return;
-      const players = playersRef.current;
-      const { socketId } = data;
+    socketRef.current.on(
+      "attack",
+      (data: TSocketRequest<TSocketAttackRequest>) => {
+        if (!playersRef.current) return;
+        const players = playersRef.current;
+        const { socketId } = data;
 
-      const playerIndex = players.findIndex((e) => e.id === socketId);
-      if (playerIndex === -1) {
-        return;
-      } else {
-        players[playerIndex].attacking = ATTACKING_FRAMES;
+        const playerIndex = players.findIndex((e) => e.id === socketId);
+        if (playerIndex === -1) {
+          return;
+        } else {
+          players[playerIndex].attacking = ATTACKING_FRAMES;
+        }
       }
-    });
+    );
   }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,7 +101,7 @@ export default () => {
         return;
     }
 
-    if (socketRef.current) syncMove(socketRef.current, positionRef.current)
+    if (socketRef.current) syncMove(socketRef.current, positionRef.current);
   };
 
   const tick = () => {
@@ -113,19 +121,28 @@ export default () => {
         player.x + HEALTH_BAR_OFFSET_X,
         player.y + HEALTH_BAR_OFFSET_Y,
         PLAYER_RADIUS * 2 * (player.health / DEFAULT_HEALTH),
-        HEALTH_BAR_WIDTH 
+        HEALTH_BAR_WIDTH
       );
 
       if (player.attacking) {
+        const { x: attackerX, y: attackerY } = player;
+        const radius =
+          PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - player.attacking);
+        playersRef.current
+          .filter(
+            (e) =>
+              e.id !== player.id &&
+              attackerX > e.x - radius &&
+              attackerX < e.x + radius &&
+              attackerY > e.y - radius &&
+              attackerY < e.y + radius
+          )
+          .forEach((e) => {
+            e.health -= HEALTH_DECREMENT_VALUE;
+          });
         ctx.beginPath();
         ctx.lineWidth = ATTACK_LINE_WIDTH;
-        ctx.arc(
-          player.x,
-          player.y,
-          PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - player.attacking),
-          0,
-          2 * Math.PI
-        );
+        ctx.arc(player.x, player.y, radius, 0, 2 * Math.PI);
         player.attacking -= 1;
         ctx.stroke();
       }
@@ -137,8 +154,8 @@ export default () => {
     window.addEventListener("keydown", (e) => playerMove(e.key));
     window.requestAnimationFrame(tick);
     setInterval(() => {
-      if (socketRef.current) syncMove(socketRef.current, positionRef.current)
-    }, 1000)
+      if (socketRef.current) syncMove(socketRef.current, positionRef.current);
+    }, 1000);
   }, []);
   return (
     <canvas
@@ -156,7 +173,7 @@ const syncMove = (socket: Socket, position: TPosition) => {
     "update",
     {
       type: "move",
-      data: position
+      data: position,
     },
     (response: any) => console.log(response)
   );
