@@ -1,4 +1,6 @@
+import { TSocketMoveRequest, TSocketRequest } from "@ctypes/socket";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 
 const PLAYER_RADIUS = 10;
 const HEALTH_BAR_OFFSET_Y = -PLAYER_RADIUS - 10;
@@ -18,6 +20,19 @@ export default () => {
   const positionRef = useRef<TPosition>({ x: 100, y: 100 });
   const attackingRef = useRef<number>(0);
   const healthRef = useRef<number>(DEFAULT_HEALTH);
+
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    if (socketRef.current) return;
+
+    socketRef.current = io();
+    socketRef.current.on('move', (data: TSocketRequest<TSocketMoveRequest>) => {
+      const { x, y, socketId } = data;
+
+    });
+
+  }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -73,9 +88,9 @@ export default () => {
     ctx.fillRect(
       positionRef.current.x + HEALTH_BAR_OFFSET_X,
       positionRef.current.y + HEALTH_BAR_OFFSET_Y,
-      PLAYER_RADIUS*2,
+      PLAYER_RADIUS * 2,
       HEALTH_BAR_WIDTH
-    )
+    );
 
     if (attackingRef.current) {
       ctx.beginPath();
@@ -97,5 +112,13 @@ export default () => {
     window.addEventListener("keydown", (e) => playerMove(e.key));
     window.requestAnimationFrame(tick);
   }, []);
-  return <canvas id="canvas" ref={canvasRef} width={800} height={800} />;
+  return (
+    <canvas
+      id="canvas"
+      style={{ border: "2px solid black", margin: "1em" }}
+      ref={canvasRef}
+      width={800}
+      height={800}
+    />
+  );
 };
