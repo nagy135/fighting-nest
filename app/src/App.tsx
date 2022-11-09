@@ -7,6 +7,8 @@ import {
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
+const CANVAS_HEIGHT = 800;
+const CANVAS_WIDTH = 800;
 const PLAYER_RADIUS = 10;
 const HEALTH_BAR_OFFSET_Y = -PLAYER_RADIUS - 10;
 const HEALTH_BAR_OFFSET_X = -PLAYER_RADIUS;
@@ -139,6 +141,13 @@ export default () => {
           )
           .forEach((e) => {
             e.health -= HEALTH_DECREMENT_VALUE;
+            if (e.health <= 0 && e.id === socketRef.current?.id) {
+              e.health = DEFAULT_HEALTH;
+              e.x = Math.random() * CANVAS_WIDTH;
+              e.y = Math.random() * CANVAS_HEIGHT;
+              if (socketRef.current)
+              syncMove(socketRef.current, {x: e.x, y: e.y});
+            } else if (e.health <= 0) e.health = DEFAULT_HEALTH;
           });
         ctx.beginPath();
         ctx.lineWidth = ATTACK_LINE_WIDTH;
@@ -162,8 +171,8 @@ export default () => {
       id="canvas"
       style={{ border: "2px solid black", margin: "1em" }}
       ref={canvasRef}
-      width={800}
-      height={800}
+      width={CANVAS_WIDTH}
+      height={CANVAS_HEIGHT}
     />
   );
 };
