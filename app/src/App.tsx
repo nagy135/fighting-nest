@@ -91,6 +91,7 @@ export default () => {
   const playerMove = () => {
     if (!socketRef.current || !pressingRef.current) return;
     const me = playersRef.current[socketRef.current.id];
+    if (!me) return;
     if (pressingRef.current.up)
         me.y -= STEP;
     if (pressingRef.current.down)
@@ -99,6 +100,11 @@ export default () => {
         me.x -= STEP;
     if (pressingRef.current.right)
         me.x += STEP;
+
+    if (me.x < 0) me.x = CANVAS_WIDTH;
+    if (me.x > CANVAS_WIDTH) me.x = 0;
+    if (me.y < 0) me.y = CANVAS_HEIGHT;
+    if (me.y > CANVAS_HEIGHT) me.y = 0;
 
     if (socketRef.current) syncUpdate(socketRef.current, me);
   };
