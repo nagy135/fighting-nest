@@ -55,7 +55,16 @@ export class SocketGateway implements OnGatewayInit, OnGatewayConnection {
     @MessageBody() data: TSocketRequest,
     @ConnectedSocket() socket: Socket,
   ): any {
-    Logger.log('received update event', data);
-    return this.socketService.update(socket, data);
+    this.logger.log('received update event', data);
+    return this.socketService.broadcast('update', socket, data);
+  }
+
+  @SubscribeMessage('typing')
+  handleTyping(
+    @MessageBody() data: TSocketRequest,
+    @ConnectedSocket() socket: Socket,
+  ): any {
+    this.logger.log('received typing event', data);
+    return this.socketService.broadcast('typing', socket, data);
   }
 }
