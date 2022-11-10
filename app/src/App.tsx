@@ -1,5 +1,9 @@
 import { TActions, TPlayer } from "@ctypes/global";
-import { TSocketRequest, TSocketUpdateRequest } from "@ctypes/socket";
+import {
+  TSocketRequest,
+  TSocketTypingRequest,
+  TSocketUpdateRequest,
+} from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
@@ -14,8 +18,12 @@ const ATTACKING_FRAMES = 15;
 const ATTACK_LINE_WIDTH = 2;
 const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
+const TYPING_TIMEOUT = 2 * 1000;
 
 export default () => {
+  const typingRemovalHandle = useRef<NodeJS.Timeout | null>(null);
+  const typingModeRef = useRef(false);
+  const typingValueRef = useRef("");
   const pressingRef = useRef<TActions>({
     up: false,
     down: false,
@@ -49,6 +57,7 @@ export default () => {
             y,
             attacking: 0,
             health: DEFAULT_HEALTH,
+            message: null,
           };
         } else {
           player.x = x;
@@ -58,33 +67,71 @@ export default () => {
         }
       }
     );
+
+    socketRef.current.on(
+      "typing",
+      (data: TSocketRequest<TSocketTypingRequest>) => {
+        if (!playersRef.current) return;
+        const players = playersRef.current;
+        const { message, socketId } = data;
+
+        const player = players[socketId];
+        if (!player) return;
+
+        player.message = message;
+      }
+    );
   }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handlePressRelease = (action: "press" | "release", key: string) => {
     if (!pressingRef.current) return;
-    switch (key) {
-      case "w":
-        pressingRef.current.up = action === "press" ? true : false;
-        break;
-      case "s":
-        pressingRef.current.down = action === "press" ? true : false;
-        break;
-      case "a":
-        pressingRef.current.left = action === "press" ? true : false;
-        break;
-      case "d":
-        pressingRef.current.right = action === "press" ? true : false;
-        break;
-      case " ":
-        if (action !== 'press' || !socketRef.current) return;
-        const me = playersRef.current[socketRef.current.id];
-        me.attacking = ATTACKING_FRAMES;
-        syncUpdate(socketRef.current, me);
-        break;
-      default:
+
+    if (typingModeRef.current && socketRef.current) {
+      if (action === "release") return;
+      if (key === "Enter") {
+        syncTyping(socketRef.current, typingValueRef.current);
+        if (typingRemovalHandle.current)
+          clearTimeout(typingRemovalHandle.current);
+
+        typingRemovalHandle.current = setTimeout(() => {
+          syncTyping(socketRef.current!, null);
+        }, TYPING_TIMEOUT);
+        typingValueRef.current = "";
+        typingModeRef.current = false;
+      } else if (key === "Backspace") {
+        typingValueRef.current = typingValueRef.current.slice(0, -1);
+      } else if (key.length === 1) {
+        typingValueRef.current += key;
+      }
+    } else {
+      if (key === "`" && action === "press") {
+        typingModeRef.current = true;
         return;
+      }
+      switch (key) {
+        case "w":
+          pressingRef.current.up = action === "press" ? true : false;
+          break;
+        case "s":
+          pressingRef.current.down = action === "press" ? true : false;
+          break;
+        case "a":
+          pressingRef.current.left = action === "press" ? true : false;
+          break;
+        case "d":
+          pressingRef.current.right = action === "press" ? true : false;
+          break;
+        case " ":
+          if (action !== "press" || !socketRef.current) return;
+          const me = playersRef.current[socketRef.current.id];
+          me.attacking = ATTACKING_FRAMES;
+          syncUpdate(socketRef.current, me);
+          break;
+        default:
+          return;
+      }
     }
   };
 
@@ -92,21 +139,18 @@ export default () => {
     if (!socketRef.current || !pressingRef.current) return;
     const me = playersRef.current[socketRef.current.id];
     if (!me) return;
-    if (pressingRef.current.up)
-        me.y -= STEP;
-    if (pressingRef.current.down)
-        me.y += STEP;
-    if (pressingRef.current.left)
-        me.x -= STEP;
-    if (pressingRef.current.right)
-        me.x += STEP;
+    if (pressingRef.current.up) me.y -= STEP;
+    if (pressingRef.current.down) me.y += STEP;
+    if (pressingRef.current.left) me.x -= STEP;
+    if (pressingRef.current.right) me.x += STEP;
 
     if (me.x < 0) me.x = CANVAS_WIDTH;
     if (me.x > CANVAS_WIDTH) me.x = 0;
     if (me.y < 0) me.y = CANVAS_HEIGHT;
     if (me.y > CANVAS_HEIGHT) me.y = 0;
 
-    if (socketRef.current) syncUpdate(socketRef.current, me);
+    if (socketRef.current && Object.values(pressingRef.current).some((e) => e))
+      syncUpdate(socketRef.current, me);
   };
 
   const tick = () => {
@@ -160,6 +204,19 @@ export default () => {
         player.attacking -= 1;
         ctx.stroke();
       }
+      if (player.message) {
+        ctx.font = "20px monospace";
+        ctx.fillText(
+          player.message,
+          player.x - 2 * PLAYER_RADIUS,
+          player.y - 3 * PLAYER_RADIUS
+        );
+      }
+
+      if (typingModeRef.current) {
+        ctx.font = "30px serif";
+        ctx.fillText(typingValueRef.current, 20, 30);
+      }
     }
     window.requestAnimationFrame(tick);
   };
@@ -182,6 +239,7 @@ export default () => {
             y: Math.floor(Math.random() * CANVAS_HEIGHT),
             attacking: 0,
             health: DEFAULT_HEALTH,
+            message: null,
           };
           playersRef.current[socketRef.current.id] = newMe;
           syncUpdate(socketRef.current, newMe);
@@ -206,6 +264,12 @@ const redLevel = (currentHealth: number): string => {
   return `#${Math.floor(
     256 * ((DEFAULT_HEALTH - currentHealth) / DEFAULT_HEALTH)
   ).toString(16)}0000`;
+};
+
+const syncTyping = (socket: Socket, text: string | null) => {
+  socket.emit("typing", { message: text }, (response: any) =>
+    console.log(response)
+  );
 };
 
 const syncUpdate = (socket: Socket, data: TSocketUpdateRequest) => {

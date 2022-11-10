@@ -9,6 +9,7 @@ export type TPlayer = {
   y: number;
   health: number;
   attacking: number;
+  message: string | null;
 };
 
 export type TActions = {

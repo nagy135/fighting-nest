@@ -5,6 +5,10 @@ export type TSocketUpdateRequest = {
   health: number;
 };
 
+export type TSocketTypingRequest = {
+  message: string;
+};
+
 export type TSocketRequest<T> = T & {
   socketId: string;
 };
