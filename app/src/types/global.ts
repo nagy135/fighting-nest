@@ -10,3 +10,10 @@ export type TPlayer = {
   health: number;
   attacking: number;
 };
+
+export type TActions = {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+};

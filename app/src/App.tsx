@@ -1,4 +1,4 @@
-import { TPlayer } from "@ctypes/global";
+import { TActions, TPlayer } from "@ctypes/global";
 import { TSocketRequest, TSocketUpdateRequest } from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
@@ -16,6 +16,12 @@ const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 
 export default () => {
+  const pressingRef = useRef<TActions>({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  });
   const playersRef = useRef<Record<string, TPlayer>>({});
 
   const socketRef = useRef<Socket | null>(null);
@@ -23,7 +29,9 @@ export default () => {
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io(process.env.REACT_APP_WS_EP!, {transports: ['websocket']});
+    socketRef.current = io(process.env.REACT_APP_WS_EP!, {
+      transports: ["websocket"],
+    });
 
     socketRef.current.on(
       "update",
@@ -54,28 +62,44 @@ export default () => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const playerMove = (key: string) => {
-    if (!socketRef.current) return;
-    const me = playersRef.current[socketRef.current.id];
+  const handlePressRelease = (action: "press" | "release", key: string) => {
+    if (!pressingRef.current) return;
     switch (key) {
       case "w":
-        me.y -= STEP;
+        pressingRef.current.up = action === "press" ? true : false;
         break;
       case "s":
-        me.y += STEP;
+        pressingRef.current.down = action === "press" ? true : false;
         break;
       case "a":
-        me.x -= STEP;
+        pressingRef.current.left = action === "press" ? true : false;
         break;
       case "d":
-        me.x += STEP;
+        pressingRef.current.right = action === "press" ? true : false;
         break;
       case " ":
+        if (action !== 'press' || !socketRef.current) return;
+        const me = playersRef.current[socketRef.current.id];
         me.attacking = ATTACKING_FRAMES;
+        syncUpdate(socketRef.current, me);
         break;
       default:
         return;
     }
+  };
+
+  const playerMove = () => {
+    if (!socketRef.current || !pressingRef.current) return;
+    const me = playersRef.current[socketRef.current.id];
+    if (pressingRef.current.up)
+        me.y -= STEP;
+    if (pressingRef.current.down)
+        me.y += STEP;
+    if (pressingRef.current.left)
+        me.x -= STEP;
+    if (pressingRef.current.right)
+        me.x += STEP;
+
     if (socketRef.current) syncUpdate(socketRef.current, me);
   };
 
@@ -85,6 +109,7 @@ export default () => {
     if (!ctx) return;
     const { width, height } = canvasRef.current.getBoundingClientRect();
 
+    playerMove();
     ctx.clearRect(0, 0, width, height);
 
     const me = playersRef.current[socketRef.current.id];
@@ -132,7 +157,12 @@ export default () => {
   };
 
   useEffect(() => {
-    window.addEventListener("keydown", (e) => playerMove(e.key));
+    window.addEventListener("keydown", (e) =>
+      handlePressRelease("press", e.key)
+    );
+    window.addEventListener("keyup", (e) =>
+      handlePressRelease("release", e.key)
+    );
     window.requestAnimationFrame(tick);
     setInterval(() => {
       if (socketRef.current !== null && playersRef.current) {
@@ -165,7 +195,9 @@ export default () => {
 };
 
 const redLevel = (currentHealth: number): string => {
-  return `#${Math.floor(256 * ((DEFAULT_HEALTH - currentHealth) / DEFAULT_HEALTH)).toString(16)}0000`;
+  return `#${Math.floor(
+    256 * ((DEFAULT_HEALTH - currentHealth) / DEFAULT_HEALTH)
+  ).toString(16)}0000`;
 };
 
 const syncUpdate = (socket: Socket, data: TSocketUpdateRequest) => {
