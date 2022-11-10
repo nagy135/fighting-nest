@@ -23,7 +23,7 @@ export default () => {
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io(process.env.REACT_APP_WS_EP!);
+    socketRef.current = io(process.env.REACT_APP_WS_EP!, {transports: ['websocket']});
 
     socketRef.current.on(
       "update",
