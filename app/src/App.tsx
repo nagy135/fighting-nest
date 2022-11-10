@@ -115,8 +115,10 @@ export default () => {
     const me = playersRef.current[socketRef.current.id];
     for (const player of Object.values(playersRef.current)) {
       ctx.beginPath();
+      if (player.id === socketRef.current.id) ctx.fillStyle = "orange";
       ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, 2 * Math.PI);
       ctx.fill();
+      ctx.fillStyle = "black";
 
       ctx.fillStyle = redLevel(player.health);
       ctx.fillRect(
