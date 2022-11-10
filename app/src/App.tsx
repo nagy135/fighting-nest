@@ -23,7 +23,7 @@ export default () => {
   useEffect(() => {
     if (socketRef.current) return;
 
-    socketRef.current = io("ws://127.0.0.1:13333");
+    socketRef.current = io(process.env.REACT_APP_WS_EP!);
 
     socketRef.current.on(
       "update",
