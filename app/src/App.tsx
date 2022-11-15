@@ -38,7 +38,6 @@ export default () => {
 
   const socketRef = useRef<Socket | null>(null);
   const explosionImgsRef = useRef<HTMLImageElement[]>([]);
-  const attackingTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadSvg().then((e) => (explosionImgsRef.current = e));
@@ -66,12 +65,14 @@ export default () => {
             attacking: 0,
             health: DEFAULT_HEALTH,
             message: null,
+            lastAttackTime: null
           };
         } else {
           player.x = x;
           player.y = y;
           player.health = health;
           player.attacking = attacking;
+          player.lastAttackTime = null;
         }
       }
     );
@@ -221,6 +222,14 @@ export default () => {
           ctx.arc(player.x, player.y, radius, 0, 2 * Math.PI);
           ctx.stroke();
         }
+        if (player.lastAttackTime === null) {
+          player.lastAttackTime = now;
+        } else {
+          if (now - player.lastAttackTime >= ATTACKING_WAIT_MS){
+            player.attacking -= 1;
+            player.lastAttackTime = now;
+          }
+        }
       }
       if (player.message) {
         ctx.font = "20px monospace";
@@ -236,21 +245,21 @@ export default () => {
         ctx.fillText(typingValueRef.current, 20, 30);
       }
     }
-    if (me && me.attacking) {
-      if (attackingTimeRef.current === null) {
-        me.attacking -= 1;
-        attackingTimeRef.current = now;
-        syncUpdate(socketRef.current, me);
-      } else {
-        if (now - attackingTimeRef.current >= ATTACKING_WAIT_MS) {
-          me.attacking -= 1;
-          attackingTimeRef.current = now;
-          syncUpdate(socketRef.current, me);
-        }
-      }
-    } else {
-      attackingTimeRef.current = null;
-    }
+    // if (me && me.attacking) {
+    //   if (attackingTimeRef.current === null) {
+    //     me.attacking -= 1;
+    //     attackingTimeRef.current = now;
+    //     syncUpdate(socketRef.current, me);
+    //   } else {
+    //     if (now - attackingTimeRef.current >= ATTACKING_WAIT_MS) {
+    //       me.attacking -= 1;
+    //       attackingTimeRef.current = now;
+    //       syncUpdate(socketRef.current, me);
+    //     }
+    //   }
+    // } else {
+    //   attackingTimeRef.current = null;
+    // }
     window.requestAnimationFrame(tick);
   };
 
@@ -273,6 +282,7 @@ export default () => {
             attacking: 0,
             health: DEFAULT_HEALTH,
             message: null,
+            lastAttackTime: null,
           };
           playersRef.current[socketRef.current.id] = newMe;
           syncUpdate(socketRef.current, newMe);

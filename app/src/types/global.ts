@@ -10,6 +10,7 @@ export type TPlayer = {
   health: number;
   attacking: number;
   message: string | null;
+  lastAttackTime: number | null;
 };
 
 export type TActions = {
