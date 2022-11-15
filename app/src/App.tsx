@@ -22,7 +22,7 @@ const ATTACK_LINE_WIDTH = 2;
 const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 const TYPING_TIMEOUT = 2 * 1000;
-const ATTACKING_WAIT_MS = 10;
+const ATTACKING_WAIT_MS = 30;
 
 export default () => {
   const typingRemovalHandle = useRef<NodeJS.Timeout | null>(null);
@@ -190,7 +190,7 @@ export default () => {
 
       if (player.attacking) {
         const { x: attackerX, y: attackerY } = player;
-        const radius = EXPLOSION_HEIGHT;
+        const radius = EXPLOSION_HEIGHT / 2;
         if (
           me.id !== player.id &&
           me.x > attackerX - radius &&
