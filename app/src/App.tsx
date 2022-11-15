@@ -6,19 +6,23 @@ import {
 } from "@ctypes/socket";
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
+import { loadSvg } from "utils";
 
 const CANVAS_HEIGHT = 800;
 const CANVAS_WIDTH = 800;
+const EXPLOSION_HEIGHT = 300;
+const EXPLOSION_WIDTH = EXPLOSION_HEIGHT;
 const PLAYER_RADIUS = 10;
 const HEALTH_BAR_OFFSET_Y = -PLAYER_RADIUS - 10;
 const HEALTH_BAR_OFFSET_X = -PLAYER_RADIUS;
 const HEALTH_BAR_WIDTH = 5;
 const DEFAULT_HEALTH = 100;
-const ATTACKING_FRAMES = 15;
+const ATTACKING_FRAMES = 20;
 const ATTACK_LINE_WIDTH = 2;
 const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 const TYPING_TIMEOUT = 2 * 1000;
+const ATTACKING_WAIT_MS = 10;
 
 export default () => {
   const typingRemovalHandle = useRef<NodeJS.Timeout | null>(null);
@@ -33,8 +37,12 @@ export default () => {
   const playersRef = useRef<Record<string, TPlayer>>({});
 
   const socketRef = useRef<Socket | null>(null);
+  const explosionImgsRef = useRef<HTMLImageElement[]>([]);
+  const attackingTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
+    loadSvg().then((e) => (explosionImgsRef.current = e));
+
     if (socketRef.current) return;
 
     socketRef.current = io(process.env.REACT_APP_WS_EP!, {
@@ -158,6 +166,7 @@ export default () => {
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
     const { width, height } = canvasRef.current.getBoundingClientRect();
+    const now = new Date().getTime();
 
     playerMove();
     ctx.clearRect(0, 0, width, height);
@@ -181,8 +190,7 @@ export default () => {
 
       if (player.attacking) {
         const { x: attackerX, y: attackerY } = player;
-        const radius =
-          PLAYER_RADIUS * 2 * (ATTACKING_FRAMES - player.attacking);
+        const radius = EXPLOSION_HEIGHT;
         if (
           me.id !== player.id &&
           me.x > attackerX - radius &&
@@ -198,11 +206,21 @@ export default () => {
           }
           syncUpdate(socketRef.current, me);
         }
-        ctx.beginPath();
-        ctx.lineWidth = ATTACK_LINE_WIDTH;
-        ctx.arc(player.x, player.y, radius, 0, 2 * Math.PI);
-        player.attacking -= 1;
-        ctx.stroke();
+        if (explosionImgsRef.current.length) {
+          ctx.drawImage(
+            explosionImgsRef.current[ATTACKING_FRAMES - player.attacking],
+            player.x - EXPLOSION_WIDTH / 2,
+            player.y - EXPLOSION_HEIGHT / 2,
+            EXPLOSION_WIDTH,
+            EXPLOSION_HEIGHT
+          );
+        } else {
+          // LEGACY FALLBACK
+          ctx.beginPath();
+          ctx.lineWidth = ATTACK_LINE_WIDTH;
+          ctx.arc(player.x, player.y, radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
       }
       if (player.message) {
         ctx.font = "20px monospace";
@@ -217,6 +235,21 @@ export default () => {
         ctx.font = "30px serif";
         ctx.fillText(typingValueRef.current, 20, 30);
       }
+    }
+    if (me && me.attacking) {
+      if (attackingTimeRef.current === null) {
+        me.attacking -= 1;
+        attackingTimeRef.current = now;
+        syncUpdate(socketRef.current, me);
+      } else {
+        if (now - attackingTimeRef.current >= ATTACKING_WAIT_MS) {
+          me.attacking -= 1;
+          attackingTimeRef.current = now;
+          syncUpdate(socketRef.current, me);
+        }
+      }
+    } else {
+      attackingTimeRef.current = null;
     }
     window.requestAnimationFrame(tick);
   };
