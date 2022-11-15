@@ -65,14 +65,16 @@ export default () => {
             attacking: 0,
             health: DEFAULT_HEALTH,
             message: null,
-            lastAttackTime: null
+            lastAttackTime: null,
           };
         } else {
           player.x = x;
           player.y = y;
           player.health = health;
-          if (attacking === ATTACKING_FRAMES) player.attacking = attacking;
-          player.lastAttackTime = null;
+          if (attacking === ATTACKING_FRAMES) {
+            player.attacking = attacking;
+            player.lastAttackTime = null;
+          }
         }
       }
     );
@@ -225,7 +227,7 @@ export default () => {
         if (player.lastAttackTime === null) {
           player.lastAttackTime = now;
         } else {
-          if (now - player.lastAttackTime >= ATTACKING_WAIT_MS){
+          if (now - player.lastAttackTime >= ATTACKING_WAIT_MS) {
             player.attacking -= 1;
             player.lastAttackTime = now;
           }
