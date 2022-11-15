@@ -71,7 +71,7 @@ export default () => {
           player.x = x;
           player.y = y;
           player.health = health;
-          player.attacking = attacking;
+          if (attacking === ATTACKING_FRAMES) player.attacking = attacking;
           player.lastAttackTime = null;
         }
       }
