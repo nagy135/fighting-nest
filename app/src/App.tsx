@@ -23,6 +23,7 @@ const HEALTH_DECREMENT_VALUE = 5;
 const STEP = 10;
 const TYPING_TIMEOUT = 2 * 1000;
 const ATTACKING_WAIT_MS = 30;
+const SYNC_THROTTLE_MS = 20;
 
 export default () => {
   const typingRemovalHandle = useRef<NodeJS.Timeout | null>(null);
@@ -317,6 +318,11 @@ const syncTyping = (socket: Socket, text: string | null) => {
   );
 };
 
+let last: number | null = null;
 const syncUpdate = (socket: Socket, data: TSocketUpdateRequest) => {
-  socket.emit("update", data, (response: any) => console.log(response));
+  const now = new Date().getTime();
+  if (last === null || now - last > SYNC_THROTTLE_MS) {
+    last = now;
+    socket.emit("update", data, (response: any) => console.log(response));
+  }
 };
